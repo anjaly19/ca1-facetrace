@@ -246,10 +246,9 @@ PimEyes crawls **billions of images** from the public internet and indexes them.
 
 ## Authors
 
-> Fill in your names and student IDs here
 
-- Student 1: _________________ (ID: _________)
-- Student 2: _________________ (ID: _________)
+- Student 1: ANJALY MURALEEDHARAN C00317503
+- Student 2: SUREKHA SURESH C00317211
 
 MSc in Data Science — Data Analytics & Algorithms  
 April 2026
