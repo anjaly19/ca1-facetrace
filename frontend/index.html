@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceTrace — Reverse Face Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0f;
+    --surface: #0d1117;
+    --surface2: #131922;
+    --surface3: #1a2232;
+    --border: rgba(255,255,255,0.07);
+    --border-active: rgba(99,179,237,0.4);
+    --accent: #63b3ed;
+    --accent2: #4fd1c7;
+    --accent-glow: rgba(99,179,237,0.15);
+    --text: #e8edf5;
+    --text2: #8899aa;
+    --text3: #556677;
+    --red: #fc8181;
+    --green: #68d391;
+    --gold: #f6c90e;
+    --card-bg: rgba(13,17,23,0.95);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: 'DM Sans', sans-serif;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow effects */
+  .glow-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-orb-1 {
+    width: 600px; height: 600px;
+    background: rgba(99,179,237,0.06);
+    top: -200px; left: -200px;
+  }
+  .glow-orb-2 {
+    width: 400px; height: 400px;
+    background: rgba(79,209,199,0.05);
+    bottom: -100px; right: -100px;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    background: rgba(8,10,15,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .logo-text span {
+    color: var(--accent);
+  }
+
+  .nav-links {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .nav-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    font-family: var(--font);
+    text-decoration: none;
+  }
+
+  .nav-btn-ghost {
+    background: transparent;
+    color: var(--text2);
+  }
+  .nav-btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .nav-btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-weight: 600;
+  }
+  .nav-btn-primary:hover { background: #90cdf4; transform: translateY(-1px); }
+
+  /* MAIN LAYOUT */
+  main {
+    position: relative;
+    z-index: 1;
+    padding-top: 64px;
+  }
+
+  /* HERO SECTION */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 64px);
+    padding: 60px 24px;
+    text-align: center;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px;
+    background: rgba(99,179,237,0.1);
+    border: 1px solid rgba(99,179,237,0.2);
+    border-radius: 100px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 28px;
+    letter-spacing: 0.5px;
+  }
+
+  .hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(56px, 9vw, 110px);
+    line-height: 0.95;
+    letter-spacing: 3px;
+    margin-bottom: 24px;
+    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--text2);
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    width: 100%;
+    max-width: 640px;
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 48px 32px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(13,17,23,0.6);
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(99,179,237,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(99,179,237,0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 60px rgba(99,179,237,0.1);
+  }
+
+  .upload-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, rgba(99,179,237,0.15), rgba(79,209,199,0.1));
+    border: 1px solid rgba(99,179,237,0.2);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    transition: var(--transition);
+  }
+
+  .upload-zone:hover .upload-icon {
+    transform: scale(1.05);
+    background: linear-gradient(135deg, rgba(99,179,237,0.25), rgba(79,209,199,0.15));
+  }
+
+  .upload-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .upload-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 24px;
+  }
+
+  .upload-formats {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .format-tag {
+    padding: 3px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text3);
+  }
+
+  /* PREVIEW */
+  .preview-container {
+    display: none;
+    width: 100%;
+    max-width: 640px;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .preview-container.visible { display: flex; }
+
+  .preview-card {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .preview-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .preview-body {
+    display: flex; gap: 16px; padding: 16px; align-items: flex-start;
+  }
+
+  #preview-img {
+    width: 120px; height: 120px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .preview-info {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .preview-filename {
+    font-size: 14px;
+    font-weight: 500;
+    word-break: break-all;
+  }
+
+  .preview-meta {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+  }
+
+  /* Controls */
+  .search-controls {
+    width: 100%;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .control-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+  }
+
+  .control-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+  }
+
+  .control-label small {
+    display: block;
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 140px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--surface3);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(99,179,237,0.4);
+  }
+
+  .range-value {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+    margin-left: 10px;
+  }
+
+  /* Search button */
+  .search-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--font);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .search-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(99,179,237,0.3);
+  }
+
+  .search-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-icon { font-size: 18px; }
+
+  /* SCANNING ANIMATION */
+  .scanning-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,10,15,0.8);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .scanning-overlay.active { display: flex; }
+
+  .scan-ring {
+    width: 100px; height: 100px;
+    position: relative;
+  }
+
+  .scan-ring::before, .scan-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: spin-ring 1.5s linear infinite;
+  }
+
+  .scan-ring::before {
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+  }
+
+  .scan-ring::after {
+    inset: 12px;
+    border-bottom-color: var(--accent2);
+    border-left-color: var(--accent2);
+    animation-direction: reverse;
+    animation-duration: 1s;
+  }
+
+  .scan-face-icon {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+
+  @keyframes spin-ring {
+    to { transform: rotate(360deg); }
+  }
+
+  .scan-text {
+    font-family: var(--font-display);
+    font-size: 24px;
+    letter-spacing: 3px;
+    color: var(--text);
+  }
+
+  .scan-sub {
+    font-size: 13px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .scan-steps {
+    display: flex; flex-direction: column; gap: 6px;
+    min-width: 240px;
+  }
+
+  .scan-step {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+    transition: color 0.3s;
+  }
+
+  .scan-step.active { color: var(--accent); }
+  .scan-step.done { color: var(--green); }
+
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* RESULTS SECTION */
+  .results-section {
+    display: none;
+    padding: 40px 24px 80px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .results-section.visible { display: block; }
+
+  .results-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .results-title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    letter-spacing: 2px;
+  }
+
+  .results-meta {
+    display: flex; gap: 20px; align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .meta-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text2);
+  }
+
+  .meta-chip .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+  }
+
+  /* Face thumbnails row */
+  .detected-faces-row {
+    display: flex; gap: 12px; align-items: center; margin-bottom: 32px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .detected-face-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .detected-face-chip img {
+    width: 64px; height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    transition: var(--transition);
+  }
+
+  .detected-face-chip.active img,
+  .detected-face-chip:hover img {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(99,179,237,0.3);
+  }
+
+  .face-chip-label {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+  }
+
+  /* Filters bar */
+  .filters-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 4px;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--font);
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-left: auto;
+  }
+
+  .view-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    transition: var(--transition);
+  }
+
+  .view-btn.active { background: var(--surface2); color: var(--text); }
+
+  /* RESULTS GRID */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .results-grid.list-view {
+    grid-template-columns: 1fr;
+  }
+
+  /* RESULT CARD */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all 0.25s;
+    cursor: pointer;
+    animation: card-in 0.4s ease backwards;
+  }
+
+  .result-card:hover {
+    border-color: rgba(99,179,237,0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-image-wrap {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: var(--surface2);
+  }
+
+  .card-image-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+
+  .result-card:hover .card-image-wrap img {
+    transform: scale(1.05);
+  }
+
+  .card-similarity-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    backdrop-filter: blur(8px);
+  }
+
+  .badge-high { background: rgba(104,211,145,0.9); color: #000; }
+  .badge-med { background: rgba(246,201,14,0.9); color: #000; }
+  .badge-low { background: rgba(252,129,129,0.9); color: #000; }
+
+  .card-scan-line {
+    position: absolute;
+    top: 10px; left: 10px;
+    bottom: 10px; right: 10px;
+    border: 1px solid rgba(99,179,237,0.3);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .result-card:hover .card-scan-line { opacity: 1; }
+
+  .card-corner {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: var(--accent);
+    border-style: solid;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .card-corner-tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+  .card-corner-tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+  .card-corner-bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+  .card-corner-br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+
+  .result-card:hover .card-corner { opacity: 1; }
+
+  .card-body {
+    padding: 14px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-url {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 10px;
+  }
+
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .similarity-bar-wrap {
+    flex: 1; margin-right: 10px;
+  }
+
+  .similarity-bar-label {
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 3px;
+    font-family: var(--font-mono);
+  }
+
+  .similarity-bar {
+    height: 3px;
+    background: var(--surface3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .similarity-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .bar-high { background: linear-gradient(90deg, var(--green), #48bb78); }
+  .bar-med { background: linear-gradient(90deg, var(--gold), #ecc94b); }
+  .bar-low { background: linear-gradient(90deg, var(--red), #f56565); }
+
+  .card-action-btn {
+    width: 30px; height: 30px;
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: var(--transition);
+  }
+
+  .card-action-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* LIST VIEW card */
+  .results-grid.list-view .result-card {
+    display: flex; align-items: center;
+  }
+
+  .results-grid.list-view .card-image-wrap {
+    width: 80px; height: 80px;
+    aspect-ratio: unset;
+    flex-shrink: 0;
+  }
+
+  .results-grid.list-view .card-body {
+    flex: 1;
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .results-grid.list-view .card-title { margin-bottom: 0; }
+  .results-grid.list-view .card-url { margin-bottom: 0; }
+  .results-grid.list-view .card-footer { flex-shrink: 0; min-width: 180px; }
+
+  /* No results */
+  .no-results {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 80px 20px;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .no-results-icon { font-size: 48px; opacity: 0.3; }
+  .no-results h3 { font-size: 20px; color: var(--text2); }
+  .no-results p { font-size: 14px; color: var(--text3); }
+
+  /* STATS BAR */
+  .stats-bar {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 24px;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+
+  .stat-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text3);
+  }
+
+  .stat-value { color: var(--accent); font-weight: 500; }
+
+  /* ADMIN PANEL */
+  .admin-panel {
+    display: none;
+    position: fixed;
+    right: 0; top: 64px; bottom: 48px;
+    width: 360px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 90;
+    flex-direction: column;
+    animation: slide-in 0.25s ease;
+    overflow: hidden;
+  }
+
+  .admin-panel.open { display: flex; }
+
+  @keyframes slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  .admin-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .admin-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  .close-btn {
+    width: 28px; height: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .admin-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .admin-section {
+    margin-bottom: 24px;
+  }
+
+  .admin-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .admin-add-form {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    outline: none;
+    transition: var(--transition);
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text3); }
+
+  .admin-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: var(--font);
+    transition: var(--transition);
+  }
+
+  .admin-btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .admin-btn-primary:hover { background: #90cdf4; }
+
+  .admin-btn-danger {
+    background: rgba(252,129,129,0.1);
+    border: 1px solid rgba(252,129,129,0.3);
+    color: var(--red);
+  }
+
+  .admin-btn-danger:hover { background: rgba(252,129,129,0.2); }
+
+  .admin-db-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .admin-db-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .admin-db-item img {
+    width: 40px; height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+  }
+
+  .admin-db-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-db-title {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-db-id {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+  }
+
+  .admin-delete-btn {
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 1px solid rgba(252,129,129,0.2);
+    border-radius: 4px;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: var(--transition);
+  }
+
+  .admin-delete-btn:hover { background: rgba(252,129,129,0.1); }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    top: 80px; right: 24px;
+    z-index: 300;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .toast {
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    animation: toast-in 0.25s ease;
+    border: 1px solid;
+  }
+
+  .toast-success { background: rgba(104,211,145,0.1); border-color: rgba(104,211,145,0.3); color: var(--green); }
+  .toast-error { background: rgba(252,129,129,0.1); border-color: rgba(252,129,129,0.3); color: var(--red); }
+  .toast-info { background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.3); color: var(--accent); }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 250;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 500px;
+    width: 100%;
+    animation: modal-in 0.25s ease;
+  }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .modal-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .modal-face-img {
+    width: 100%;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    max-height: 300px;
+    object-fit: contain;
+    background: var(--surface2);
+  }
+
+  .modal-meta-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 16px;
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .modal-meta-key {
+    color: var(--text3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding-top: 2px;
+  }
+
+  .modal-meta-val {
+    color: var(--text);
+    word-break: break-all;
+  }
+
+  .modal-actions {
+    display: flex; gap: 10px;
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--font);
+    transition: var(--transition);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  .modal-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .modal-btn-close {
+    background: var(--surface2);
+  }
+
+  /* CNN INFO */
+  .cnn-info-panel {
+    display: none;
+    position: fixed;
+    left: 0; top: 64px; bottom: 48px;
+    width: 320px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    z-index: 90;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .cnn-info-panel.open { display: block; }
+
+  .cnn-layer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text2);
+  }
+
+  .layer-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .layer-arrow {
+    text-align: center;
+    color: var(--text3);
+    font-size: 10px;
+    margin: 2px 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .results-grid { grid-template-columns: repeat(2, 1fr); }
+    .admin-panel { width: 100%; }
+    .cnn-info-panel { width: 100%; }
+    .hero h1 { font-size: 48px; }
+  }
+
+  /* Hidden file input */
+  #file-input { display: none; }
+
+  /* Admin add image preview */
+  #admin-preview-img {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    max-height: 120px;
+    object-fit: cover;
+    display: none;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .architecture-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: rgba(79,209,199,0.1);
+    border: 1px solid rgba(79,209,199,0.2);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--accent2);
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="glow-orb glow-orb-1"></div>
+<div class="glow-orb glow-orb-2"></div>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="logo-icon">🔍</div>
+    <span class="logo-text">FACE<span>TRACE</span></span>
+  </a>
+  <div class="nav-links">
+    <button class="nav-btn nav-btn-ghost" onclick="toggleCNNPanel()">🧠 CNN Model</button>
+    <button class="nav-btn nav-btn-ghost" onclick="toggleAdminPanel()">⚙️ Database</button>
+    <button class="nav-btn nav-btn-primary" onclick="resetToSearch()">New Search</button>
+  </div>
+</nav>
+
+<main>
+
+  <!-- HERO / UPLOAD -->
+  <section class="hero" id="hero-section">
+    <div class="hero-badge">Powered by Custom CNN · No Pretrained Models</div>
+    <h1>FIND ANY<br><em>FACE</em><br>ONLINE</h1>
+    <p class="hero-sub">Upload a photo to search our database using a custom-built Convolutional Neural Network with 128-dimensional face embeddings.</p>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📷</div>
+      <div class="upload-title">Drop photo here or click to upload</div>
+      <div class="upload-sub">Best results with clear, front-facing photos</div>
+      <div class="upload-formats">
+        <span class="format-tag">JPG</span>
+        <span class="format-tag">PNG</span>
+        <span class="format-tag">WEBP</span>
+        <span class="format-tag">GIF</span>
+        <span class="format-tag">BMP</span>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-container" id="preview-container">
+      <div class="preview-card">
+        <div class="preview-header">
+          <span class="preview-label">Selected Image</span>
+          <button class="nav-btn nav-btn-ghost" style="padding:4px 10px;font-size:12px" onclick="clearPreview()">✕ Clear</button>
+        </div>
+        <div class="preview-body">
+          <img id="preview-img" src="" alt="Preview">
+          <div class="preview-info">
+            <div class="preview-filename" id="preview-filename">—</div>
+            <div class="preview-meta" id="preview-meta">—</div>
+            <div class="architecture-badge" id="model-badge">🧠 ArcFace R50 · 512-dim · FAISS search</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-controls">
+        <div class="control-row">
+          <div class="control-label">
+            Similarity Threshold
+            <small>Higher = stricter matching</small>
+          </div>
+          <div style="display:flex;align-items:center;gap:0">
+            <input type="range" id="threshold-slider" min="10" max="90" value="35" oninput="document.getElementById('threshold-val').textContent=this.value+'%'">
+            <span class="range-value" id="threshold-val">35%</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            Max Results
+            <small>Number of matches to return</small>
+          </div>
+          <div style="display:flex;align-items:center;gap:0">
+            <input type="range" id="topk-slider" min="5" max="50" value="20" oninput="document.getElementById('topk-val').textContent=this.value">
+            <span class="range-value" id="topk-val">20</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="search-btn" id="search-btn" onclick="startSearch()">
+        <span class="btn-icon">🔍</span>
+        SEARCH FACE DATABASE
+      </button>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+  </section>
+
+  <!-- RESULTS -->
+  <section class="results-section" id="results-section">
+    <div class="results-header">
+      <div>
+        <div class="results-title">SEARCH RESULTS</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px" id="results-subtitle">—</div>
+      </div>
+      <div class="results-meta">
+        <div class="meta-chip"><span class="dot"></span><span id="meta-found">—</span> found</div>
+        <div class="meta-chip">⏱ <span id="meta-time">—</span>ms</div>
+        <div class="meta-chip">🗄 <span id="meta-dbsize">—</span> indexed</div>
+      </div>
+    </div>
+
+    <!-- Detected Faces -->
+    <div class="detected-faces-row" id="detected-faces-row">
+      <span style="font-size:12px;color:var(--text3);white-space:nowrap">Detected faces:</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-bar">
+      <span class="filter-label">Sort:</span>
+      <button class="filter-btn active" onclick="sortResults('similarity',this)">↓ Similarity</button>
+      <button class="filter-btn" onclick="sortResults('source',this)">Source</button>
+      <span class="filter-label" style="margin-left:12px">View:</span>
+      <select id="view-mode-select" class="form-input" style="width:auto;padding:5px 10px;font-size:12px" onchange="renderResults(currentResults, currentPersons)">
+        <option value="persons">👤 By Person</option>
+        <option value="images">🖼 All Images</option>
+      </select>
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setView('grid',this)" title="Grid view">⊞</button>
+        <button class="view-btn" onclick="setView('list',this)" title="List view">≡</button>
+      </div>
+    </div>
+
+    <div class="results-grid" id="results-grid">
+      <!-- Cards inserted here -->
+    </div>
+  </section>
+
+</main>
+
+<!-- SCANNING OVERLAY -->
+<div class="scanning-overlay" id="scanning-overlay">
+  <div class="scan-ring">
+    <div class="scan-face-icon">👤</div>
+  </div>
+  <div class="scan-text">ANALYZING FACE</div>
+  <div class="scan-steps">
+    <div class="scan-step" id="step-detect">
+      <div class="step-dot"></div> Detecting face landmarks...
+    </div>
+    <div class="scan-step" id="step-conv">
+      <div class="step-dot"></div> Running CNN forward pass...
+    </div>
+    <div class="scan-step" id="step-embed">
+      <div class="step-dot"></div> Extracting 128-d embeddings...
+    </div>
+    <div class="scan-step" id="step-search">
+      <div class="step-dot"></div> Searching face database...
+    </div>
+  </div>
+  <div class="scan-sub" id="scan-sub">Processing image...</div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="admin-panel">
+  <div class="admin-header">
+    <span class="admin-title">⚙️ FACE DATABASE</span>
+    <button class="close-btn" onclick="toggleAdminPanel()">✕</button>
+  </div>
+  <div class="admin-body">
+    <div class="admin-section">
+      <div class="admin-section-title">Add Face to Database</div>
+      <div class="admin-add-form">
+        <div class="upload-zone" style="padding:20px;border-radius:10px" onclick="document.getElementById('admin-file-input').click()">
+          <img id="admin-preview-img" src="" alt="">
+          <div style="font-size:13px;color:var(--text3);text-align:center">Click to select face image</div>
+        </div>
+        <input type="file" id="admin-file-input" accept="image/*" style="display:none" onchange="handleAdminFileSelect(event)">
+        <input type="text" class="form-input" id="admin-title" placeholder="Name / Title">
+        <input type="text" class="form-input" id="admin-url" placeholder="Source URL (optional)">
+        <input type="text" class="form-input" id="admin-desc" placeholder="Description (optional)">
+        <button class="admin-btn admin-btn-primary" onclick="addFaceToDb()">+ Add to Database</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-section-title">Database Contents (<span id="admin-db-count">—</span>)</div>
+      <div class="admin-db-list" id="admin-db-list">
+        <!-- Items here -->
+      </div>
+      <div style="margin-top:10px">
+        <button class="admin-btn admin-btn-danger" onclick="clearDatabase()">🗑 Reset & Re-seed Database</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CNN INFO PANEL -->
+<div class="cnn-info-panel" id="cnn-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <span style="font-size:14px;font-weight:600">🧠 CNN Architecture</span>
+    <button class="close-btn" onclick="toggleCNNPanel()">✕</button>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:16px;line-height:1.6">
+    Custom CNN built from scratch using NumPy only. No pretrained weights. Siamese-style face embedding extractor.
+  </div>
+  <div id="cnn-layers"><!-- generated by JS --></div>
+  <div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-mono);color:var(--text3);line-height:1.8">
+    Input: 3×64×64 RGB<br>
+    Similarity: Cosine<br>
+    Embedding: 128-dim L2<br>
+    Framework: NumPy only
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="modal-overlay" id="result-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">—</div>
+    <div class="modal-sub" id="modal-sub">Face match details</div>
+    <img class="modal-face-img" id="modal-img" src="" alt="">
+    <div class="modal-meta-grid" id="modal-meta"></div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="window.open(document.getElementById('modal-url-val').textContent,'_blank')">🔗 Open Source</button>
+      <button class="modal-btn modal-btn-close" onclick="closeModal()">✕ Close</button>
+    </div>
+    <span id="modal-url-val" style="display:none"></span>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- STATS BAR -->
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-item">🗄 <span class="stat-value" id="stat-db">—</span> faces indexed</div>
+  <div class="stat-item">🧠 <span class="stat-value" id="stat-model">ArcFace</span> · <span class="stat-value" id="stat-search">FAISS</span></div>
+  <div class="stat-item" style="margin-left:auto">
+    <span style="font-size:10px">Server: </span>
+    <span class="stat-value" id="stat-server">connecting...</span>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const API = window.location.origin;  // Same origin
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let selectedFile = null;
+let currentResults = [];
+let currentPersons = [];
+let adminSelectedFile = null;
+let dbStats = null;
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  initDragDrop();
+  initCNNPanel();
+  checkServerStatus();
+  loadDbStats();
+  loadAdminDb();
+});
+
+function checkServerStatus() {
+  fetch(`${API}/api/stats`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('stat-server').textContent = '● online';
+      document.getElementById('stat-server').style.color = 'var(--green)';
+      document.getElementById('stat-db').textContent = data.total_faces;
+      document.getElementById('admin-db-count').textContent = data.total_faces;
+      if (data.model_info) {
+        const m = data.model_info;
+        document.getElementById('stat-model').textContent = m.pretrained ? 'ArcFace ✓' : 'Custom CNN';
+        document.getElementById('stat-search').textContent = data.search_engine || 'NumPy';
+        document.getElementById('model-badge').textContent =
+          `🧠 ${m.recognizer} · ${m.embedding_dim}-dim · ${data.search_engine || 'NumPy'} search`;
+      }
+    })
+    .catch(() => {
+      document.getElementById('stat-server').textContent = '● offline';
+      document.getElementById('stat-server').style.color = 'var(--red)';
+      toast('Backend server not detected. Run start.py first.', 'error');
+    });
+}
+
+function loadDbStats() {
+  fetch(`${API}/api/stats`)
+    .then(r => r.json())
+    .then(data => { dbStats = data; })
+    .catch(() => {});
+}
+
+// ─── DRAG & DROP ──────────────────────────────────────────────────────────────
+function initDragDrop() {
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(file);
+    else toast('Please drop an image file', 'error');
+  });
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) handleFile(file);
+}
+
+function handleFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('preview-filename').textContent = file.name;
+    document.getElementById('preview-meta').textContent = `${(file.size/1024).toFixed(1)} KB · ${file.type}`;
+    document.getElementById('upload-zone').style.display = 'none';
+    document.getElementById('preview-container').classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPreview() {
+  selectedFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('upload-zone').style.display = '';
+  document.getElementById('preview-container').classList.remove('visible');
+}
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+async function startSearch() {
+  if (!selectedFile) { toast('Please select an image first', 'error'); return; }
+
+  const threshold = parseInt(document.getElementById('threshold-slider').value) / 100;
+  const topK = parseInt(document.getElementById('topk-slider').value);
+
+  // Show scanning overlay
+  showScanning();
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+  formData.append('threshold', threshold);
+  formData.append('top_k', topK);
+
+  try {
+    const response = await fetch(`${API}/api/search`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Search failed');
+    }
+
+    const data = await response.json();
+    hideScanning();
+    showResults(data);
+
+  } catch (err) {
+    hideScanning();
+    toast(`Search error: ${err.message}`, 'error');
+  }
+}
+
+function showScanning() {
+  const overlay = document.getElementById('scanning-overlay');
+  overlay.classList.add('active');
+
+  const steps = ['step-detect', 'step-conv', 'step-embed', 'step-search'];
+  const labels = [
+    'Detecting face with Haar cascade...',
+    'Running CNN: Conv→BN→ReLU→Pool ×4...',
+    'Computing 128-d L2 embedding...',
+    'Cosine similarity search...'
+  ];
+
+  steps.forEach(id => {
+    document.getElementById(id).className = 'scan-step';
+  });
+
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i < steps.length) {
+      if (i > 0) document.getElementById(steps[i-1]).classList.replace('active', 'done');
+      document.getElementById(steps[i]).classList.add('active');
+      document.getElementById('scan-sub').textContent = labels[i];
+      i++;
+    } else {
+      clearInterval(interval);
+    }
+  }, 600);
+}
+
+function hideScanning() {
+  document.getElementById('scanning-overlay').classList.remove('active');
+}
+
+function showResults(data) {
+  document.getElementById('hero-section').style.display = 'none';
+  const section = document.getElementById('results-section');
+  section.classList.add('visible');
+
+  const personCount = data.total_persons || data.total_results;
+  document.getElementById('results-subtitle').textContent =
+    `${data.faces_detected} face(s) detected · ${data.total_results} image matches across ${personCount} person(s)`;
+  document.getElementById('meta-found').textContent = data.total_results;
+  document.getElementById('meta-time').textContent = data.search_time_ms;
+  document.getElementById('meta-dbsize').textContent = data.database_size;
+
+  // Detected faces row
+  const row = document.getElementById('detected-faces-row');
+  row.innerHTML = '<span style="font-size:12px;color:var(--text3);white-space:nowrap">Detected faces:</span>';
+  data.face_thumbnails.forEach((ft, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'detected-face-chip active';
+    chip.innerHTML = `<img src="${ft.thumbnail}" alt="Face ${i+1}"><span class="face-chip-label">${ft.match_count} match${ft.match_count!==1?'es':''}</span>`;
+    row.appendChild(chip);
+  });
+
+  currentResults = data.results;
+  currentPersons = data.persons || [];
+  renderResults(currentResults, currentPersons);
+}
+
+function renderResults(results, persons) {
+  const grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+
+  if (!results.length) {
+    grid.innerHTML = `<div class="no-results" style="grid-column:1/-1">
+      <div class="no-results-icon">🔍</div>
+      <h3>No matches found</h3>
+      <p>Try lowering the similarity threshold or add more faces to the database.</p>
+    </div>`;
+    return;
+  }
+
+  // If we have person groupings (LFW mode), show person cards
+  const viewMode = document.getElementById('view-mode-select')?.value || 'images';
+
+  if (persons && persons.length > 0 && viewMode === 'persons') {
+    renderPersonCards(persons);
+  } else {
+    renderImageCards(results);
+  }
+}
+
+function renderPersonCards(persons) {
+  const grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+
+  persons.forEach((person, i) => {
+    const sim = Math.round(person.best_similarity * 100);
+    const badgeClass = sim >= 70 ? 'badge-high' : sim >= 50 ? 'badge-med' : 'badge-low';
+    const barClass   = sim >= 70 ? 'bar-high'   : sim >= 50 ? 'bar-med'   : 'bar-low';
+    const imgSrc = person.matches[0]?.thumbnail || '';
+    const extraCount = person.matches.length - 1;
+
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.onclick = () => openPersonModal(person);
+    card.innerHTML = `
+      <div class="card-image-wrap">
+        <img src="${imgSrc}" alt="${person.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%231a2232%22 width=%22200%22 height=%22200%22/><text x=%22100%22 y=%22110%22 text-anchor=%22middle%22 fill=%22%23556677%22 font-size=%2248%22>👤</text></svg>'">
+        <div class="card-similarity-badge ${badgeClass}">${sim}%</div>
+        ${extraCount > 0 ? `<div style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);padding:3px 8px;border-radius:4px;font-size:11px;color:#fff">+${extraCount} more</div>` : ''}
+        <div class="card-scan-line"></div>
+        <div class="card-corner card-corner-tl"></div>
+        <div class="card-corner card-corner-tr"></div>
+        <div class="card-corner card-corner-bl"></div>
+        <div class="card-corner card-corner-br"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">👤 ${person.name}</div>
+        <div class="card-url">${person.matches.length} photo${person.matches.length!==1?'s':''} matched</div>
+        <div class="card-footer">
+          <div class="similarity-bar-wrap">
+            <div class="similarity-bar-label">BEST MATCH</div>
+            <div class="similarity-bar">
+              <div class="similarity-bar-fill ${barClass}" style="width:0%" data-width="${sim}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.similarity-bar-fill').forEach(el => {
+      el.style.width = el.dataset.width;
+    });
+  });
+}
+
+function renderImageCards(results) {
+  const grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+
+  results.forEach((r, i) => {
+    const sim = r.similarity_percent || Math.round(r.similarity * 100);
+    const badgeClass = sim >= 70 ? 'badge-high' : sim >= 50 ? 'badge-med' : 'badge-low';
+    const barClass   = sim >= 70 ? 'bar-high'   : sim >= 50 ? 'bar-med'   : 'bar-low';
+    const imgSrc = r.thumbnail || `${API}/api/faces/${r.id}.jpg`;
+
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.onclick = () => openModal(r);
+    card.innerHTML = `
+      <div class="card-image-wrap">
+        <img src="${imgSrc}" alt="${r.title}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%231a2232%22 width=%22200%22 height=%22200%22/><text x=%22100%22 y=%22110%22 text-anchor=%22middle%22 fill=%22%23556677%22 font-size=%2248%22>👤</text></svg>'">
+        <div class="card-similarity-badge ${badgeClass}">${sim}%</div>
+        <div class="card-scan-line"></div>
+        <div class="card-corner card-corner-tl"></div>
+        <div class="card-corner card-corner-tr"></div>
+        <div class="card-corner card-corner-bl"></div>
+        <div class="card-corner card-corner-br"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${r.title || 'Unknown'}</div>
+        <div class="card-url">${r.source_url || 'No source'}</div>
+        <div class="card-footer">
+          <div class="similarity-bar-wrap">
+            <div class="similarity-bar-label">SIMILARITY</div>
+            <div class="similarity-bar">
+              <div class="similarity-bar-fill ${barClass}" style="width:0%" data-width="${sim}%"></div>
+            </div>
+          </div>
+          <button class="card-action-btn" onclick="event.stopPropagation();window.open('${r.source_url}','_blank')" title="Open source">🔗</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.similarity-bar-fill').forEach(el => {
+      el.style.width = el.dataset.width;
+    });
+  });
+}
+
+function sortResults(by, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sorted = [...currentResults];
+  if (by === 'similarity') sorted.sort((a,b) => b.similarity - a.similarity);
+  else if (by === 'source') sorted.sort((a,b) => (a.source_url||'').localeCompare(b.source_url||''));
+  currentResults = sorted;
+  renderResults(currentResults, currentPersons);
+}
+
+function openPersonModal(person) {
+  document.getElementById('modal-title').textContent = person.name;
+  document.getElementById('modal-sub').textContent = `${person.matches.length} photo(s) matched · Best: ${Math.round(person.best_similarity*100)}% similarity`;
+  const firstMatch = person.matches[0];
+  document.getElementById('modal-img').src = firstMatch?.thumbnail || '';
+  document.getElementById('modal-url-val').textContent = firstMatch?.source_url || '#';
+
+  // Build a gallery of all matches
+  const galleryHtml = person.matches.slice(0,6).map(m =>
+    `<img src="${m.thumbnail}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" onclick="document.getElementById('modal-img').src=this.src">`
+  ).join('');
+
+  document.getElementById('modal-meta').innerHTML = `
+    <span class="modal-meta-key">NAME</span><span class="modal-meta-val" style="color:var(--accent)">${person.name}</span>
+    <span class="modal-meta-key">PHOTOS</span><span class="modal-meta-val">${person.matches.length} matched</span>
+    <span class="modal-meta-key">BEST SIM</span><span class="modal-meta-val">${Math.round(person.best_similarity*100)}%</span>
+    <span class="modal-meta-key">SOURCE</span><span class="modal-meta-val">${firstMatch?.source_url || '—'}</span>
+    <span class="modal-meta-key">GALLERY</span>
+    <span class="modal-meta-val" style="display:flex;gap:6px;flex-wrap:wrap">${galleryHtml}</span>
+  `;
+  document.getElementById('result-modal').classList.add('open');
+}
+
+function setView(view, btn) {
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = document.getElementById('results-grid');
+  grid.classList.toggle('list-view', view === 'list');
+}
+
+function resetToSearch() {
+  document.getElementById('hero-section').style.display = '';
+  document.getElementById('results-section').classList.remove('visible');
+  clearPreview();
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(r) {
+  const sim = r.similarity_percent || Math.round(r.similarity * 100);
+  const imgSrc = r.thumbnail || `${API}/api/faces/${r.id}.jpg`;
+  document.getElementById('modal-title').textContent = r.title || 'Unknown';
+  document.getElementById('modal-sub').textContent = `${sim}% similarity match`;
+  document.getElementById('modal-img').src = imgSrc;
+  document.getElementById('modal-url-val').textContent = r.source_url || '#';
+  document.getElementById('modal-meta').innerHTML = `
+    <span class="modal-meta-key">ID</span><span class="modal-meta-val">${r.id}</span>
+    <span class="modal-meta-key">SIMILARITY</span><span class="modal-meta-val" style="color:var(--accent)">${sim}%</span>
+    <span class="modal-meta-key">SOURCE</span><span class="modal-meta-val">${r.source_url || '—'}</span>
+    <span class="modal-meta-key">DESCRIPTION</span><span class="modal-meta-val">${r.description || '—'}</span>
+    <span class="modal-meta-key">ADDED</span><span class="modal-meta-val">${r.added_at ? r.added_at.split('T')[0] : '—'}</span>
+  `;
+  document.getElementById('result-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('result-modal').classList.remove('open');
+}
+
+document.getElementById('result-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('result-modal')) closeModal();
+});
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+function toggleAdminPanel() {
+  document.getElementById('admin-panel').classList.toggle('open');
+  if (document.getElementById('admin-panel').classList.contains('open')) {
+    loadAdminDb();
+  }
+}
+
+function handleAdminFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  adminSelectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('admin-preview-img');
+    img.src = e.target.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function addFaceToDb() {
+  if (!adminSelectedFile) { toast('Select an image first', 'error'); return; }
+  const title = document.getElementById('admin-title').value;
+  const url = document.getElementById('admin-url').value;
+  const desc = document.getElementById('admin-desc').value;
+
+  const formData = new FormData();
+  formData.append('image', adminSelectedFile);
+  formData.append('title', title || adminSelectedFile.name);
+  formData.append('source_url', url);
+  formData.append('description', desc);
+
+  try {
+    const r = await fetch(`${API}/api/add-face`, { method: 'POST', body: formData });
+    const data = await r.json();
+    if (data.success) {
+      toast(`✅ Added ${data.faces_added} face(s) to database`, 'success');
+      adminSelectedFile = null;
+      document.getElementById('admin-file-input').value = '';
+      document.getElementById('admin-preview-img').style.display = 'none';
+      document.getElementById('admin-title').value = '';
+      document.getElementById('admin-url').value = '';
+      document.getElementById('admin-desc').value = '';
+      loadAdminDb();
+      checkServerStatus();
+    } else {
+      toast(data.error || 'Failed to add face', 'error');
+    }
+  } catch (err) {
+    toast(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function loadAdminDb() {
+  try {
+    const r = await fetch(`${API}/api/database?per_page=50`);
+    const data = await r.json();
+    const list = document.getElementById('admin-db-list');
+    document.getElementById('admin-db-count').textContent = data.total;
+    list.innerHTML = '';
+    data.faces.forEach(face => {
+      const item = document.createElement('div');
+      item.className = 'admin-db-item';
+      item.innerHTML = `
+        <img src="${face.thumbnail || ''}" alt="" onerror="this.style.display='none'">
+        <div class="admin-db-info">
+          <div class="admin-db-title">${face.title || 'Unnamed'}</div>
+          <div class="admin-db-id">${face.id} · ${face.added_at?.split('T')[0] || ''}</div>
+        </div>
+        <button class="admin-delete-btn" onclick="deleteFace('${face.id}',this)">✕</button>
+      `;
+      list.appendChild(item);
+    });
+  } catch (err) {
+    console.error('Failed to load admin db:', err);
+  }
+}
+
+async function deleteFace(id, btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/api/face/${id}`, { method: 'DELETE' });
+    const data = await r.json();
+    if (data.success) {
+      btn.closest('.admin-db-item').remove();
+      toast('Face removed from database', 'info');
+      checkServerStatus();
+    }
+  } catch (err) {
+    toast(`Error: ${err.message}`, 'error');
+    btn.disabled = false;
+  }
+}
+
+async function clearDatabase() {
+  if (!confirm('Reset database and re-seed with demo faces?')) return;
+  try {
+    const r = await fetch(`${API}/api/clear`, { method: 'POST' });
+    const data = await r.json();
+    if (data.success) {
+      toast(`✅ Database reset. ${data.total_in_db} demo faces loaded`, 'success');
+      loadAdminDb();
+      checkServerStatus();
+    }
+  } catch (err) {
+    toast(`Error: ${err.message}`, 'error');
+  }
+}
+
+// ─── CNN PANEL ────────────────────────────────────────────────────────────────
+function toggleCNNPanel() {
+  document.getElementById('cnn-panel').classList.toggle('open');
+}
+
+function initCNNPanel() {
+  const layers = [
+    { name: 'Input', desc: '3×64×64 RGB', color: '#4fd1c7' },
+    { name: 'Conv2D (16, 3×3, pad=1)', desc: 'Feature extraction', color: '#63b3ed' },
+    { name: 'BatchNorm + ReLU', desc: 'Normalization & activation', color: '#9f7aea' },
+    { name: 'MaxPool (2×2)', desc: '→ 16×32×32', color: '#63b3ed' },
+    { name: 'Conv2D (32, 3×3, pad=1)', desc: 'Deeper features', color: '#63b3ed' },
+    { name: 'BatchNorm + ReLU', desc: 'Normalization & activation', color: '#9f7aea' },
+    { name: 'MaxPool (2×2)', desc: '→ 32×16×16', color: '#63b3ed' },
+    { name: 'Conv2D (64, 3×3, pad=1)', desc: 'High-level features', color: '#63b3ed' },
+    { name: 'BatchNorm + ReLU', desc: 'Normalization & activation', color: '#9f7aea' },
+    { name: 'MaxPool (2×2)', desc: '→ 64×8×8', color: '#63b3ed' },
+    { name: 'Conv2D (64, 3×3, pad=1)', desc: 'Deep abstraction', color: '#63b3ed' },
+    { name: 'BatchNorm + ReLU', desc: 'Normalization & activation', color: '#9f7aea' },
+    { name: 'MaxPool (2×2)', desc: '→ 64×4×4', color: '#63b3ed' },
+    { name: 'Flatten', desc: '→ 1024', color: '#f6ad55' },
+    { name: 'Dense (1024→256)', desc: 'Fully connected', color: '#f6c90e' },
+    { name: 'ReLU + Dropout (0.3)', desc: 'Regularization', color: '#9f7aea' },
+    { name: 'Dense (256→128)', desc: 'Embedding layer', color: '#f6c90e' },
+    { name: 'L2 Normalize', desc: '128-d unit vector', color: '#fc8181' },
+    { name: 'Cosine Similarity', desc: 'Similarity search', color: '#68d391' },
+  ];
+
+  const container = document.getElementById('cnn-layers');
+  layers.forEach((l, i) => {
+    const div = document.createElement('div');
+    if (i > 0) div.innerHTML += `<div class="layer-arrow">↓</div>`;
+    div.innerHTML += `<div class="cnn-layer">
+      <div class="layer-dot" style="background:${l.color}"></div>
+      <div>
+        <div style="color:var(--text);font-size:11px">${l.name}</div>
+        <div style="color:var(--text3);font-size:10px">${l.desc}</div>
+      </div>
+    </div>`;
+    container.appendChild(div);
+  });
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  t.className = `toast toast-${type}`;
+  t.textContent = `${icons[type]} ${msg}`;
+  container.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+</script>
+</body>
+</html>
